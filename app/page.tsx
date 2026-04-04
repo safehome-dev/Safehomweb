@@ -32,7 +32,7 @@ export default function Home() {
               Download on Google Play
             </Button>
             <Button size="lg" variant="outline" className="text-lg px-8 py-6">
-              Learn More
+              Download on App Store
             </Button>
           </div>
 
@@ -73,8 +73,11 @@ export default function Home() {
             <Link href="/privacy-policy" className="hover:text-slate-900 transition-colors">
               Privacy Policy
             </Link>
-            <Link href="#" className="hover:text-slate-900 transition-colors">
+            <Link href="/terms-of-service" className="hover:text-slate-900 transition-colors">
               Terms of Service
+            </Link>
+            <Link href="/data-deletion" className="hover:text-slate-900 transition-colors">
+              Data Deletion
             </Link>
             <Link href="#" className="hover:text-slate-900 transition-colors">
               Contact
