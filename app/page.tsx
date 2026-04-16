@@ -79,7 +79,7 @@ export default function Home() {
             <Link href="/data-deletion" className="hover:text-slate-900 transition-colors">
               Data Deletion
             </Link>
-            <Link href="#" className="hover:text-slate-900 transition-colors">
+            <Link href="/contact" className="hover:text-slate-900 transition-colors">
               Contact
             </Link>
           </div>
