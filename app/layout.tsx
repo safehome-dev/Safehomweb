@@ -1,33 +1,35 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
+import { AuthProvider } from "@/lib/providers/auth-provider";
+import { CurrencyProvider } from "@/lib/providers/currency-provider";
+import { Toaster } from "@/components/ui/sonner";
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
-  title: "SafeHome - Find Your Perfect Home, Effortlessly",
-  description: "Discover homes for rent, sale, or find the perfect roommates. Share property photos, connect with others, and find your safe home today.",
+  title: "SafeHome — Rent, Roommates & Services",
+  description:
+    "Find homes, list properties, match with roommates and book trusted local services — all in one place.",
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        {children}
+      <body className={`${inter.variable} font-sans antialiased`}>
+        <AuthProvider>
+          <CurrencyProvider>
+            {children}
+            <Toaster richColors position="top-center" />
+          </CurrencyProvider>
+        </AuthProvider>
       </body>
     </html>
   );
