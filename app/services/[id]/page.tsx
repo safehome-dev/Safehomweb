@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Star, BadgeCheck, MessageCircle, MapPin } from "lucide-react";
+
+import { extractIdFromParam, serviceHref } from "@/lib/slug";
 
 import { SiteShell } from "@/components/site-shell";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -20,7 +22,8 @@ import { avatarFallback } from "@/lib/fallback-image";
 import type { Profile, ServiceProvider } from "@/lib/types/database";
 
 export default function ServiceProviderPage() {
-  const { id } = useParams<{ id: string }>();
+  const params = useParams<{ id: string }>();
+  const id = useMemo(() => extractIdFromParam(params?.id), [params?.id]);
   const supabase = getSupabaseBrowserClient();
   const { user } = useAuth();
   const { convert, display } = useCurrency();
@@ -177,7 +180,7 @@ export default function ServiceProviderPage() {
                 </Button>
               </Link>
             )}
-            <Link href={`/services/${provider.id}/book`}>
+            <Link href={`${serviceHref(provider)}/book`}>
               <Button variant="secondary" className="w-full">Book service</Button>
             </Link>
           </Card>

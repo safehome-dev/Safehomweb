@@ -2,8 +2,20 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { BedDouble, Bath, Home as HomeIcon, MapPin, MessageCircle, Heart, Calendar } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  BedDouble,
+  Bath,
+  Home as HomeIcon,
+  MapPin,
+  MessageCircle,
+  Heart,
+  Calendar,
+  Share2,
+  ChevronLeft,
+  ChevronRight,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { SiteShell } from "@/components/site-shell";
@@ -19,10 +31,12 @@ import { useAuth } from "@/lib/providers/auth-provider";
 import { useCurrency } from "@/lib/providers/currency-provider";
 import { formatPrice } from "@/lib/currency";
 import { avatarFallback, propertyFallbackImage } from "@/lib/fallback-image";
+import { extractIdFromParam, propertyHref } from "@/lib/slug";
 import type { Profile, Property, Review } from "@/lib/types/database";
 
 export default function PropertyDetailPage() {
-  const { id } = useParams<{ id: string }>();
+  const params = useParams<{ id: string }>();
+  const id = useMemo(() => extractIdFromParam(params?.id), [params?.id]);
   const router = useRouter();
   const supabase = getSupabaseBrowserClient();
   const { user } = useAuth();
@@ -31,6 +45,7 @@ export default function PropertyDetailPage() {
   const [lister, setLister] = useState<Profile | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [activeImage, setActiveImage] = useState(0);
+  const [lightbox, setLightbox] = useState(false);
   const [favorite, setFavorite] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -96,6 +111,61 @@ export default function PropertyDetailPage() {
     }
   }
 
+  async function share() {
+    if (!property) return;
+    const url = `${window.location.origin}${propertyHref(property)}`;
+    const data = {
+      title: property.title,
+      text: `${property.title} — ${property.location_city}, ${property.location_country}`,
+      url,
+    };
+    if (
+      typeof navigator !== "undefined" &&
+      typeof navigator.share === "function" &&
+      (typeof navigator.canShare !== "function" || navigator.canShare(data))
+    ) {
+      try {
+        await navigator.share(data);
+        return;
+      } catch (err) {
+        if ((err as DOMException)?.name === "AbortError") return;
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success("Link copied to clipboard");
+    } catch {
+      toast.error("Could not share. Long-press the URL bar to copy.");
+    }
+  }
+
+  const goPrev = useCallback(() => {
+    setActiveImage((i) => {
+      const total = property?.images?.length ?? 0;
+      if (total <= 1) return i;
+      return (i - 1 + total) % total;
+    });
+  }, [property?.images?.length]);
+
+  const goNext = useCallback(() => {
+    setActiveImage((i) => {
+      const total = property?.images?.length ?? 0;
+      if (total <= 1) return i;
+      return (i + 1) % total;
+    });
+  }, [property?.images?.length]);
+
+  useEffect(() => {
+    if (!lightbox) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setLightbox(false);
+      else if (e.key === "ArrowLeft") goPrev();
+      else if (e.key === "ArrowRight") goNext();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [lightbox, goPrev, goNext]);
+
   if (loading) {
     return (
       <SiteShell>
@@ -134,16 +204,48 @@ export default function PropertyDetailPage() {
       <div className="container mx-auto px-4 py-6 grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           <Card className="p-0 overflow-hidden">
-            <div className="relative aspect-video bg-muted">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={hero} alt={property.title} className="size-full object-cover" />
-              <Badge className="absolute top-4 left-4 bg-primary">
+            <div className="relative aspect-video bg-muted group">
+              <button
+                type="button"
+                onClick={() => setLightbox(true)}
+                aria-label="View larger image"
+                className="absolute inset-0 cursor-zoom-in"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={hero} alt={property.title} className="size-full object-cover" />
+              </button>
+              <Badge className="absolute top-4 left-4 bg-primary pointer-events-none">
                 {property.rental_type === "rent"
                   ? "For Rent"
                   : property.rental_type === "sale"
                     ? "For Sale"
                     : "Available"}
               </Badge>
+              {images.length > 1 && (
+                <>
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    onClick={goPrev}
+                    aria-label="Previous image"
+                    className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-white/90 hover:bg-white shadow"
+                  >
+                    <ChevronLeft className="size-5" />
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    onClick={goNext}
+                    aria-label="Next image"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-white/90 hover:bg-white shadow"
+                  >
+                    <ChevronRight className="size-5" />
+                  </Button>
+                  <div className="absolute bottom-3 right-3 px-2 py-1 rounded-md bg-black/60 text-white text-xs pointer-events-none">
+                    {activeImage + 1} / {images.length}
+                  </div>
+                </>
+              )}
             </div>
             {images.length > 1 && (
               <div className="flex gap-2 overflow-x-auto p-2">
@@ -151,7 +253,7 @@ export default function PropertyDetailPage() {
                   <button
                     key={i}
                     onClick={() => setActiveImage(i)}
-                    className={`relative size-20 shrink-0 rounded-md overflow-hidden border-2 ${
+                    className={`relative size-20 shrink-0 cursor-pointer rounded-md overflow-hidden border-2 ${
                       i === activeImage ? "border-primary" : "border-transparent"
                     }`}
                   >
@@ -162,6 +264,66 @@ export default function PropertyDetailPage() {
               </div>
             )}
           </Card>
+
+          {lightbox && (
+            <div
+              role="dialog"
+              aria-modal="true"
+              className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+              onClick={() => setLightbox(false)}
+            >
+              <Button
+                variant="secondary"
+                size="icon"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLightbox(false);
+                }}
+                aria-label="Close"
+                className="absolute top-4 right-4 rounded-full bg-white/90 hover:bg-white shadow"
+              >
+                <X className="size-5" />
+              </Button>
+              {images.length > 1 && (
+                <>
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      goPrev();
+                    }}
+                    aria-label="Previous image"
+                    className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-white/90 hover:bg-white shadow"
+                  >
+                    <ChevronLeft className="size-6" />
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      goNext();
+                    }}
+                    aria-label="Next image"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-white/90 hover:bg-white shadow"
+                  >
+                    <ChevronRight className="size-6" />
+                  </Button>
+                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full bg-black/70 text-white text-sm">
+                    {activeImage + 1} / {images.length}
+                  </div>
+                </>
+              )}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={hero}
+                alt={property.title}
+                onClick={(e) => e.stopPropagation()}
+                className="max-h-[90vh] max-w-[95vw] object-contain"
+              />
+            </div>
+          )}
 
           <div className="space-y-2">
             <h1 className="text-2xl md:text-3xl font-bold">{property.title}</h1>
@@ -281,14 +443,19 @@ export default function PropertyDetailPage() {
             >
               <MessageCircle className="size-4" /> Message lister
             </Button>
-            <Button
-              variant="outline"
-              onClick={toggleFavorite}
-              className="w-full gap-2"
-            >
-              <Heart className={`size-4 ${favorite ? "fill-red-500 text-red-500" : ""}`} />
-              {favorite ? "Saved" : "Save to wishlist"}
-            </Button>
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                variant="outline"
+                onClick={toggleFavorite}
+                className="gap-2"
+              >
+                <Heart className={`size-4 ${favorite ? "fill-red-500 text-red-500" : ""}`} />
+                {favorite ? "Saved" : "Save"}
+              </Button>
+              <Button variant="outline" onClick={share} className="gap-2">
+                <Share2 className="size-4" /> Share
+              </Button>
+            </div>
             <Button
               variant="secondary"
               className="w-full"
@@ -297,7 +464,7 @@ export default function PropertyDetailPage() {
                   router.push("/login");
                   return;
                 }
-                router.push(`/property/${property.id}/book`);
+                router.push(`${propertyHref(property)}/book`);
               }}
             >
               Book property

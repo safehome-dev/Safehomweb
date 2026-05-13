@@ -7,6 +7,7 @@ import type { ServiceProvider, Profile } from "@/lib/types/database";
 import { useCurrency } from "@/lib/providers/currency-provider";
 import { formatPrice } from "@/lib/currency";
 import { avatarFallback } from "@/lib/fallback-image";
+import { serviceHref } from "@/lib/slug";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -28,7 +29,7 @@ export function ServiceCard({ provider }: Props) {
     : null;
 
   return (
-    <Link href={`/services/${provider.id}`}>
+    <Link href={serviceHref(provider)}>
       <Card className="overflow-hidden p-0 hover:shadow-lg transition-shadow h-full">
         <div className="relative aspect-[16/10] bg-muted">
           {/* eslint-disable-next-line @next/next/no-img-element */}

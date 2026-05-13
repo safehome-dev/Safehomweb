@@ -10,6 +10,7 @@ import { useAuth } from "@/lib/providers/auth-provider";
 import { useCurrency } from "@/lib/providers/currency-provider";
 import { formatPrice } from "@/lib/currency";
 import { propertyFallbackImage } from "@/lib/fallback-image";
+import { propertyHref } from "@/lib/slug";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 import { Badge } from "@/components/ui/badge";
@@ -81,7 +82,7 @@ export function PropertyCard({ property, onRemove, removable }: Props) {
   async function share(e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
-    const url = `${window.location.origin}/property/${property.id}`;
+    const url = `${window.location.origin}${propertyHref(property)}`;
     if (navigator.share) {
       try {
         await navigator.share({ title: property.title, url });
@@ -94,7 +95,7 @@ export function PropertyCard({ property, onRemove, removable }: Props) {
 
   return (
     <Card className="group overflow-hidden p-0 hover:shadow-lg transition-shadow">
-      <Link href={`/property/${property.id}`} className="block">
+      <Link href={propertyHref(property)} className="block">
         <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
