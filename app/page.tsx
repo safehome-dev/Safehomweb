@@ -1,9 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
-import { Search } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 
 import { SiteShell } from "@/components/site-shell";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { defaultFilters, FilterSheet, type Filters } from "@/components/filter-sheet";
@@ -11,10 +13,20 @@ import { PropertiesTab } from "@/components/home/properties-tab";
 import { ServicesTab } from "@/components/home/services-tab";
 import { RoommatesTab } from "@/components/home/roommates-tab";
 import { FriendsTab } from "@/components/home/friends-tab";
+import { useAuth } from "@/lib/providers/auth-provider";
 
 export default function HomePage() {
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<Filters>(defaultFilters);
+  const { profile } = useAuth();
+
+  // Mirror the mobile FAB gate: only listers / both / admins see the
+  // "Create Listing" entry point. /listings/new will then enforce the
+  // active-subscription paywall.
+  const canList =
+    profile?.role === "admin" ||
+    profile?.user_type === "lister" ||
+    profile?.user_type === "both";
 
   return (
     <SiteShell>
@@ -54,6 +66,21 @@ export default function HomePage() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {canList && (
+        <Link
+          href="/listings/new"
+          aria-label="Create listing"
+          className="fixed right-6 bottom-24 md:bottom-8 z-30"
+        >
+          <Button
+            size="icon"
+            className="size-14 rounded-full shadow-lg bg-amber-500 hover:bg-amber-600 text-white"
+          >
+            <Plus className="size-6" />
+          </Button>
+        </Link>
+      )}
     </SiteShell>
   );
 }

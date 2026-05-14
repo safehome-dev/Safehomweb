@@ -36,7 +36,7 @@ const rows: Array<{ href: string; label: string; icon: React.ElementType }> = [
   { href: "/listings/new", label: "Create listing", icon: Building2 },
   { href: "/services/new", label: "Become a service provider", icon: Wrench },
   { href: "/subscription", label: "Subscription", icon: CreditCard },
-  { href: "/transaction-history", label: "Transaction history", icon: Receipt },
+  { href: "/subscription", label: "Transaction history", icon: Receipt },
 ];
 
 export default function ProfilePage() {
@@ -86,7 +86,7 @@ export default function ProfilePage() {
         <Card className="p-0 overflow-hidden">
           <ul className="divide-y">
             {rows.map(({ href, label, icon: Icon }) => (
-              <li key={href}>
+              <li key={label}>
                 <Link
                   href={href}
                   className="flex items-center gap-3 p-4 hover:bg-accent transition"
