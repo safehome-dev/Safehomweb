@@ -34,6 +34,7 @@ import { formatPrice } from "@/lib/currency";
 import { avatarFallback, propertyFallbackImage } from "@/lib/fallback-image";
 import { extractIdFromParam, propertyHref } from "@/lib/slug";
 import type { Profile, Property, Review } from "@/lib/types/database";
+import { cached } from "@/lib/cache";
 
 export default function PropertyDetailPage() {
   const params = useParams<{ id: string }>();
@@ -52,31 +53,58 @@ export default function PropertyDetailPage() {
 
   useEffect(() => {
     if (!id) return;
+    let ignore = false;
     (async () => {
       setLoading(true);
-      const { data } = await supabase
-        .from("properties")
-        .select("*")
-        .eq("id", id)
-        .maybeSingle();
-      const p = data as Property | null;
+      const [p, reviewRows] = await Promise.all([
+        cached(
+          `property:${id}`,
+          async () => {
+            const { data } = await supabase
+              .from("properties")
+              .select("*")
+              .eq("id", id)
+              .maybeSingle();
+            return data as Property | null;
+          },
+          60_000
+        ),
+        cached(
+          `reviews:${id}`,
+          async () => {
+            const { data } = await supabase
+              .from("reviews")
+              .select("*")
+              .eq("property_id", id)
+              .order("created_at", { ascending: false });
+            return (data ?? []) as Review[];
+          },
+          60_000
+        ),
+      ]);
+      if (ignore) return;
       setProperty(p);
+      setReviews(reviewRows);
       if (p?.lister_id) {
-        const { data: listerData } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", p.lister_id)
-          .maybeSingle();
-        setLister(listerData as Profile | null);
+        const listerData = await cached(
+          `profile:${p.lister_id}`,
+          async () => {
+            const { data } = await supabase
+              .from("profiles")
+              .select("*")
+              .eq("id", p.lister_id)
+              .maybeSingle();
+            return data as Profile | null;
+          },
+          60_000
+        );
+        if (!ignore) setLister(listerData);
       }
-      const { data: reviewData } = await supabase
-        .from("reviews")
-        .select("*")
-        .eq("property_id", id)
-        .order("created_at", { ascending: false });
-      setReviews((reviewData ?? []) as Review[]);
-      setLoading(false);
+      if (!ignore) setLoading(false);
     })();
+    return () => {
+      ignore = true;
+    };
   }, [id, supabase]);
 
   useEffect(() => {

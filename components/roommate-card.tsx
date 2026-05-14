@@ -23,6 +23,7 @@ import { useCurrency } from "@/lib/providers/currency-provider";
 import { formatPrice } from "@/lib/currency";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { avatarFallback } from "@/lib/fallback-image";
+import { invalidate } from "@/lib/cache";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -137,6 +138,8 @@ export function RoommateCard({ profile, onSkip, onLiked, onBlocked }: Props) {
       reason: "Other safety concern",
       auto_blocked: true,
     });
+    invalidate(`roommates:blocks:${user.id}`);
+    invalidate("roommates:p0:");
     setWorking(false);
     setOpen(false);
     onBlocked?.();

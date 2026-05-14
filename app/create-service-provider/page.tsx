@@ -25,6 +25,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { COUNTRIES, getStatesForCountry, type Country } from "@/lib/location-data";
 import { CURRENCY_SYMBOLS } from "@/lib/currency";
 import type { ServiceProvider } from "@/lib/types/database";
+import { invalidate } from "@/lib/cache";
 
 const SERVICE_CATEGORIES = [
   "hairdressing",
@@ -188,6 +189,7 @@ export default function CreateServiceProviderPage() {
         const { error } = await supabase.from("service_providers").insert(payload);
         if (error) throw error;
       }
+      invalidate("services:p0:");
       toast.success("Service provider profile saved.");
       router.replace("/services");
     } catch (err) {

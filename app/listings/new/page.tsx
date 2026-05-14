@@ -37,6 +37,7 @@ import { isSubscriptionActive } from "@/lib/subscription";
 import { CURRENCY_SYMBOLS } from "@/lib/currency";
 import { COUNTRIES, getStatesForCountry, type Country } from "@/lib/location-data";
 import type { Subscription } from "@/lib/types/database";
+import { invalidate } from "@/lib/cache";
 
 const PROPERTY_TYPES = ["house", "apartment", "room", "shared", "studio"] as const;
 const RENTAL_TYPES = ["short-term", "mid-term", "long-term", "any"] as const;
@@ -318,6 +319,7 @@ export default function NewListingPage() {
         approval_status: "pending",
       });
       if (error) throw error;
+      invalidate("properties:p0:");
       toast.success("Listing submitted for review.");
       router.replace("/profile");
     } catch (err) {

@@ -9,6 +9,7 @@ import { ServiceCard } from "@/components/service-card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Filters } from "@/components/filter-sheet";
+import { cached } from "@/lib/cache";
 
 const PAGE = 10;
 
@@ -19,18 +20,20 @@ interface Props {
   filters: Filters;
 }
 
+function filtersKey(f: Filters) {
+  return [f.minPrice || "", f.maxPrice || "", f.country, f.currency].join("|");
+}
+
 export function ServicesTab({ search, filters }: Props) {
   const supabase = getSupabaseBrowserClient();
   const [items, setItems] = useState<ProviderWithProfile[]>([]);
+  const [total, setTotal] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [more, setMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
 
-  const load = useCallback(
-    async (from: number, reset = false) => {
-      if (reset) setLoading(true);
-      else setLoadingMore(true);
-
+  const fetchPage = useCallback(
+    async (from: number) => {
       let q = supabase
         .from("service_providers")
         .select("*", { count: "exact" })
@@ -56,25 +59,43 @@ export function ServicesTab({ search, filters }: Props) {
           profilesById.set(p.id, { name: p.name, avatar_url: p.avatar_url })
         );
       }
-      const enriched = rows.map((r) => ({
+      const enriched: ProviderWithProfile[] = rows.map((r) => ({
         ...r,
         profile: profilesById.get(r.user_id) ?? null,
       }));
-
-      if (reset) setItems(enriched);
-      else setItems((prev) => [...prev, ...enriched]);
-      const newTotal = (reset ? enriched.length : items.length + enriched.length);
-      setMore(count != null ? newTotal < count : enriched.length === PAGE);
-      setLoading(false);
-      setLoadingMore(false);
+      return { rows: enriched, count: count ?? null };
     },
-    [supabase, filters, items.length]
+    [supabase, filters]
   );
 
   useEffect(() => {
-    load(0, true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.minPrice, filters.maxPrice, filters.country, filters.currency]);
+    let ignore = false;
+    setLoading(true);
+    (async () => {
+      const key = `services:p0:${filtersKey(filters)}`;
+      const { rows, count } = await cached(key, () => fetchPage(0), 60_000);
+      if (ignore) return;
+      setItems(rows);
+      setTotal(count);
+      setMore(count != null ? rows.length < count : rows.length === PAGE);
+      setLoading(false);
+    })();
+    return () => {
+      ignore = true;
+    };
+  }, [fetchPage, filters]);
+
+  async function loadMore() {
+    setLoadingMore(true);
+    const { rows, count } = await fetchPage(items.length);
+    setItems((prev) => {
+      const next = [...prev, ...rows];
+      setMore(count != null ? next.length < count : rows.length === PAGE);
+      return next;
+    });
+    if (count != null) setTotal(count);
+    setLoadingMore(false);
+  }
 
   const filtered = search
     ? items.filter((p) => {
@@ -113,13 +134,9 @@ export function ServicesTab({ search, filters }: Props) {
           <ServiceCard key={p.id} provider={p} />
         ))}
       </div>
-      {more && (
+      {more && total != null && items.length < total && (
         <div className="flex justify-center mt-8">
-          <Button
-            variant="outline"
-            disabled={loadingMore}
-            onClick={() => load(items.length)}
-          >
+          <Button variant="outline" disabled={loadingMore} onClick={loadMore}>
             {loadingMore && <Loader2 className="size-4 mr-2 animate-spin" />}
             Load more
           </Button>

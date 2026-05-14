@@ -9,6 +9,7 @@ import { PropertyCard } from "@/components/property-card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Filters } from "@/components/filter-sheet";
+import { cached } from "@/lib/cache";
 
 const PAGE = 10;
 
@@ -17,18 +18,26 @@ interface Props {
   filters: Filters;
 }
 
+function filtersKey(f: Filters) {
+  return [
+    f.minPrice || "",
+    f.maxPrice || "",
+    f.minBedrooms || "",
+    f.country,
+    f.currency,
+  ].join("|");
+}
+
 export function PropertiesTab({ search, filters }: Props) {
   const supabase = getSupabaseBrowserClient();
   const [items, setItems] = useState<Property[]>([]);
+  const [total, setTotal] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [more, setMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
 
-  const load = useCallback(
-    async (from: number, reset = false) => {
-      if (reset) setLoading(true);
-      else setLoadingMore(true);
-
+  const fetchPage = useCallback(
+    async (from: number) => {
       let q = supabase
         .from("properties")
         .select("*", { count: "exact" })
@@ -44,21 +53,39 @@ export function PropertiesTab({ search, filters }: Props) {
       if (filters.currency !== "all") q = q.eq("currency", filters.currency);
 
       const { data, count } = await q;
-      const next = (data ?? []) as Property[];
-      if (reset) setItems(next);
-      else setItems((prev) => [...prev, ...next]);
-      const newTotal = (reset ? next.length : items.length + next.length);
-      setMore(count != null ? newTotal < count : next.length === PAGE);
-      setLoading(false);
-      setLoadingMore(false);
+      return { rows: (data ?? []) as Property[], count: count ?? null };
     },
-    [supabase, filters, items.length]
+    [supabase, filters]
   );
 
   useEffect(() => {
-    load(0, true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.minPrice, filters.maxPrice, filters.minBedrooms, filters.country, filters.currency]);
+    let ignore = false;
+    setLoading(true);
+    (async () => {
+      const key = `properties:p0:${filtersKey(filters)}`;
+      const { rows, count } = await cached(key, () => fetchPage(0), 60_000);
+      if (ignore) return;
+      setItems(rows);
+      setTotal(count);
+      setMore(count != null ? rows.length < count : rows.length === PAGE);
+      setLoading(false);
+    })();
+    return () => {
+      ignore = true;
+    };
+  }, [fetchPage, filters]);
+
+  async function loadMore() {
+    setLoadingMore(true);
+    const { rows, count } = await fetchPage(items.length);
+    setItems((prev) => {
+      const next = [...prev, ...rows];
+      setMore(count != null ? next.length < count : rows.length === PAGE);
+      return next;
+    });
+    if (count != null) setTotal(count);
+    setLoadingMore(false);
+  }
 
   const filtered = search
     ? items.filter((p) => {
@@ -97,13 +124,9 @@ export function PropertiesTab({ search, filters }: Props) {
           <PropertyCard key={p.id} property={p} />
         ))}
       </div>
-      {more && (
+      {more && total != null && items.length < total && (
         <div className="flex justify-center mt-8">
-          <Button
-            variant="outline"
-            disabled={loadingMore}
-            onClick={() => load(items.length)}
-          >
+          <Button variant="outline" disabled={loadingMore} onClick={loadMore}>
             {loadingMore && <Loader2 className="size-4 mr-2 animate-spin" />}
             Load more
           </Button>

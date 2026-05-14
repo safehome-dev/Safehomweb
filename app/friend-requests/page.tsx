@@ -16,6 +16,7 @@ import { useAuth } from "@/lib/providers/auth-provider";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { avatarFallback } from "@/lib/fallback-image";
 import type { Friendship, Profile } from "@/lib/types/database";
+import { invalidate } from "@/lib/cache";
 
 type RequestRow = {
   id: string;
@@ -109,6 +110,8 @@ export default function FriendRequestsPage() {
       type: "connection",
       action_url: "/friends",
     });
+    if (user) invalidate(`friends:${user.id}`);
+    invalidate(`friends:${row.requesterId}`);
     setRequests((prev) => prev.filter((r) => r.id !== row.id));
     setBusyId(null);
     toast.success("Friend request accepted");

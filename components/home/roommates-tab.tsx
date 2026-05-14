@@ -10,6 +10,7 @@ import { RoommateCard } from "@/components/roommate-card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Filters } from "@/components/filter-sheet";
+import { cached } from "@/lib/cache";
 
 const PAGE = 10;
 
@@ -22,20 +23,22 @@ interface Props {
   filters: Filters;
 }
 
+function filtersKey(f: Filters) {
+  return [f.minPrice || "", f.maxPrice || "", f.country, f.currency].join("|");
+}
+
 export function RoommatesTab({ search, filters }: Props) {
   const supabase = getSupabaseBrowserClient();
   const { user } = useAuth();
   const [items, setItems] = useState<RoommateWithProfile[]>([]);
+  const [total, setTotal] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [more, setMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
 
-  const load = useCallback(
-    async (from: number, reset = false) => {
-      if (reset) setLoading(true);
-      else setLoadingMore(true);
-
+  const fetchPage = useCallback(
+    async (from: number) => {
       let q = supabase
         .from("roommate_profiles")
         .select("*", { count: "exact" })
@@ -50,20 +53,29 @@ export function RoommatesTab({ search, filters }: Props) {
       if (filters.minPrice) q = q.gte("budget_min", Number(filters.minPrice));
       if (filters.maxPrice) q = q.lte("budget_max", Number(filters.maxPrice));
 
-      const { data, count } = await q;
-      const rows = (data ?? []) as RoommateProfile[];
+      const blocksKey = user ? `roommates:blocks:${user.id}` : "roommates:blocks:anon";
+      const blocksPromise = user
+        ? cached(
+            blocksKey,
+            async () => {
+              const { data } = await supabase
+                .from("user_blocks")
+                .select("blocked_user_id")
+                .eq("blocker_id", user.id);
+              return ((data ?? []) as Array<{ blocked_user_id: string }>).map(
+                (b) => b.blocked_user_id
+              );
+            },
+            60_000
+          )
+        : Promise.resolve([] as string[]);
 
-      let blocked = new Set<string>();
-      if (user) {
-        const { data: blocks } = await supabase
-          .from("user_blocks")
-          .select("blocked_user_id")
-          .eq("blocker_id", user.id);
-        blocked = new Set(
-          ((blocks ?? []) as Array<{ blocked_user_id: string }>).map((b) => b.blocked_user_id)
-        );
-      }
+      const [rowsRes, blockedIds] = await Promise.all([q, blocksPromise]);
+      const rows = (rowsRes.data ?? []) as RoommateProfile[];
+      const count = rowsRes.count ?? null;
+      const blocked = new Set(blockedIds);
       const filteredRows = rows.filter((r) => !blocked.has(r.user_id));
+
       const userIds = filteredRows.map((r) => r.user_id);
       const profilesById = new Map<string, Pick<Profile, "name" | "avatar_url" | "phone"> | null>();
       if (userIds.length) {
@@ -75,25 +87,43 @@ export function RoommatesTab({ search, filters }: Props) {
           profilesById.set(p.id, { name: p.name, avatar_url: p.avatar_url, phone: p.phone })
         );
       }
-      const enriched = filteredRows.map((r) => ({
+      const enriched: RoommateWithProfile[] = filteredRows.map((r) => ({
         ...r,
         profile: profilesById.get(r.user_id) ?? null,
       }));
-
-      if (reset) setItems(enriched);
-      else setItems((prev) => [...prev, ...enriched]);
-      const newTotal = (reset ? enriched.length : items.length + enriched.length);
-      setMore(count != null ? newTotal < count : enriched.length === PAGE);
-      setLoading(false);
-      setLoadingMore(false);
+      return { rows: enriched, count };
     },
-    [supabase, user, filters, items.length]
+    [supabase, user, filters]
   );
 
   useEffect(() => {
-    load(0, true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.minPrice, filters.maxPrice, filters.country, filters.currency, user?.id]);
+    let ignore = false;
+    setLoading(true);
+    (async () => {
+      const key = `roommates:p0:${user?.id ?? "anon"}:${filtersKey(filters)}`;
+      const { rows, count } = await cached(key, () => fetchPage(0), 60_000);
+      if (ignore) return;
+      setItems(rows);
+      setTotal(count);
+      setMore(count != null ? rows.length < count : rows.length === PAGE);
+      setLoading(false);
+    })();
+    return () => {
+      ignore = true;
+    };
+  }, [fetchPage, filters, user?.id]);
+
+  async function loadMore() {
+    setLoadingMore(true);
+    const { rows, count } = await fetchPage(items.length);
+    setItems((prev) => {
+      const next = [...prev, ...rows];
+      setMore(count != null ? next.length < count : rows.length === PAGE);
+      return next;
+    });
+    if (count != null) setTotal(count);
+    setLoadingMore(false);
+  }
 
   const filtered = items.filter((p) => !dismissed.has(p.id));
   const searched = search
@@ -140,13 +170,9 @@ export function RoommatesTab({ search, filters }: Props) {
           />
         ))}
       </div>
-      {more && (
+      {more && total != null && items.length < total && (
         <div className="flex justify-center mt-8">
-          <Button
-            variant="outline"
-            disabled={loadingMore}
-            onClick={() => load(items.length)}
-          >
+          <Button variant="outline" disabled={loadingMore} onClick={loadMore}>
             {loadingMore && <Loader2 className="size-4 mr-2 animate-spin" />}
             Load more
           </Button>

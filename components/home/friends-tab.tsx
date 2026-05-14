@@ -10,6 +10,7 @@ import type { Friendship, Profile } from "@/lib/types/database";
 import { FriendCard } from "@/components/friend-card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cached } from "@/lib/cache";
 
 interface Props {
   search: string;
@@ -29,38 +30,48 @@ export function FriendsTab({ search }: Props) {
       setLoading(false);
       return;
     }
+    let ignore = false;
     (async () => {
-      const { data } = await supabase
-        .from("friendships")
-        .select("*")
-        .eq("status", "accepted")
-        .or(`user_id.eq.${user.id},friend_id.eq.${user.id}`)
-        .order("created_at", { ascending: false });
-      const rows = (data ?? []) as Friendship[];
-      const friendIds = rows.map((r) =>
-        r.user_id === user.id ? r.friend_id : r.user_id
+      const list = await cached(
+        `friends:${user.id}`,
+        async () => {
+          const { data } = await supabase
+            .from("friendships")
+            .select("*")
+            .eq("status", "accepted")
+            .or(`user_id.eq.${user.id},friend_id.eq.${user.id}`)
+            .order("created_at", { ascending: false });
+          const rows = (data ?? []) as Friendship[];
+          const friendIds = rows.map((r) =>
+            r.user_id === user.id ? r.friend_id : r.user_id
+          );
+          const profileMap = new Map<string, Pick<Profile, "id" | "name" | "avatar_url" | "bio">>();
+          if (friendIds.length) {
+            const { data: profiles } = await supabase
+              .from("profiles")
+              .select("id, name, avatar_url, bio")
+              .in("id", friendIds);
+            ((profiles ?? []) as Profile[]).forEach((p) =>
+              profileMap.set(p.id, { id: p.id, name: p.name, avatar_url: p.avatar_url, bio: p.bio })
+            );
+          }
+          return rows
+            .map((r) => {
+              const fid = r.user_id === user.id ? r.friend_id : r.user_id;
+              const friend = profileMap.get(fid);
+              return friend ? { since: r.created_at, friend } : null;
+            })
+            .filter((x): x is { since: string; friend: Pick<Profile, "id" | "name" | "avatar_url" | "bio"> } => !!x);
+        },
+        60_000
       );
-      const profileMap = new Map<string, Pick<Profile, "id" | "name" | "avatar_url" | "bio">>();
-      if (friendIds.length) {
-        const { data: profiles } = await supabase
-          .from("profiles")
-          .select("id, name, avatar_url, bio")
-          .in("id", friendIds);
-        ((profiles ?? []) as Profile[]).forEach((p) =>
-          profileMap.set(p.id, { id: p.id, name: p.name, avatar_url: p.avatar_url, bio: p.bio })
-        );
-      }
-      setItems(
-        rows
-          .map((r) => {
-            const fid = r.user_id === user.id ? r.friend_id : r.user_id;
-            const friend = profileMap.get(fid);
-            return friend ? { since: r.created_at, friend } : null;
-          })
-          .filter((x): x is { since: string; friend: Pick<Profile, "id" | "name" | "avatar_url" | "bio"> } => !!x)
-      );
+      if (ignore) return;
+      setItems(list);
       setLoading(false);
     })();
+    return () => {
+      ignore = true;
+    };
   }, [user, authLoading, supabase]);
 
   if (!user) {
