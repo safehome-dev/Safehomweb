@@ -14,6 +14,7 @@ import {
   Share2,
   ChevronLeft,
   ChevronRight,
+  Video as VideoIcon,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -192,6 +193,7 @@ export default function PropertyDetailPage() {
   }
 
   const images = (property.images ?? []) as string[];
+  const videoUrls = (Array.isArray(property.video_urls) ? property.video_urls : []) as string[];
   const fallbackHero = propertyFallbackImage(property.title, property.location_city);
   const hero = images[activeImage] ?? fallbackHero;
   const priceTarget = convert(Number(property.price), property.currency ?? "GBP");
@@ -366,6 +368,26 @@ export default function PropertyDetailPage() {
             <section>
               <h2 className="font-semibold mb-2">House rules</h2>
               <p className="text-sm whitespace-pre-line">{property.rules}</p>
+            </section>
+          )}
+
+          {videoUrls.length > 0 && (
+            <section>
+              <h2 className="font-semibold mb-2 flex items-center gap-2">
+                <VideoIcon className="size-4" /> Property videos
+              </h2>
+              <div className="space-y-3">
+                {videoUrls.map((url, i) => (
+                  <video
+                    key={i}
+                    src={url}
+                    controls
+                    preload="metadata"
+                    playsInline
+                    className="w-full rounded-lg bg-black aspect-video"
+                  />
+                ))}
+              </div>
             </section>
           )}
 

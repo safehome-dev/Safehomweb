@@ -30,6 +30,7 @@ import { Card } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
+  DialogTitle,
 } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
@@ -255,9 +256,12 @@ export function RoommateCard({ profile, onSkip, onLiked, onBlocked }: Props) {
 
       {/* Detail modal */}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-2xl p-0 overflow-hidden gap-0 max-h-[90vh] flex flex-col">
+        <DialogContent className="max-w-2xl p-0 gap-0 max-h-[90vh] overflow-y-auto">
+          <DialogTitle className="sr-only">
+            {name} — {profile.title}
+          </DialogTitle>
           {/* Image carousel */}
-          <div className="relative aspect-[4/3] bg-muted shrink-0">
+          <div className="relative aspect-[4/3] bg-muted">
             <button
               type="button"
               onClick={() => setLightbox(true)}
@@ -318,7 +322,7 @@ export function RoommateCard({ profile, onSkip, onLiked, onBlocked }: Props) {
           </div>
 
           {/* Body */}
-          <div className="overflow-y-auto p-5 space-y-4">
+          <div className="p-5 space-y-4">
             {/* Profile header */}
             <div className="flex items-center gap-3">
               <Avatar className="size-14">
