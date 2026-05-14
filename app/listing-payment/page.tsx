@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import Script from "next/script";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Check, Loader2, Rocket } from "lucide-react";
 import { toast } from "sonner";
 
@@ -26,6 +27,10 @@ import {
   CURRENCY_SYMBOLS,
   formatPrice,
 } from "@/lib/currency";
+import {
+  FLUTTERWAVE_INLINE_SRC,
+  type FlutterwaveCallbackData,
+} from "@/lib/flutterwave";
 
 export default function ListingPaymentPage() {
   return (
@@ -44,6 +49,9 @@ function ListingPaymentInner() {
 
   const [selectedCurrency, setSelectedCurrency] = useState<string>("GBP");
   const [processingPlan, setProcessingPlan] = useState<string | null>(null);
+  const [scriptReady, setScriptReady] = useState(false);
+  // Guard so we don't double-fire when both `callback` and `onclose` run.
+  const verifyingRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (profile?.preferred_currency) {
@@ -61,51 +69,102 @@ function ListingPaymentInner() {
 
   const priceForPlan = useMemo(
     () => (plan: ListingPlan) => {
-      // Plan prices are stored in GBP. Convert via NGN to the chosen currency
-      // — same route the mobile app uses.
       const converted = convertFromCurrency(plan.price, "GBP", selectedCurrency, rates);
       return Math.max(1, Math.round(converted));
     },
     [selectedCurrency, rates]
   );
 
-  async function subscribe(plan: ListingPlan) {
-    if (!user) {
+  async function verifyPayment(planId: string, reference: string) {
+    if (verifyingRef.current === reference) return;
+    verifyingRef.current = reference;
+    try {
+      const res = await fetch("/api/payments/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reference, planId }),
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        toast.success("Subscription activated");
+        router.replace(returnTo);
+      } else if (data?.status === "cancelled") {
+        toast.error("Payment was cancelled.");
+      } else {
+        toast.error(data?.error ?? "Payment could not be verified.");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Could not verify payment. Please contact support.");
+    } finally {
+      setProcessingPlan(null);
+    }
+  }
+
+  function subscribe(plan: ListingPlan) {
+    if (!user || !user.email) {
       router.push("/login");
       return;
     }
-    setProcessingPlan(plan.id);
-    try {
-      const amount = priceForPlan(plan);
-      const res = await fetch("/api/payments/init", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          planId: plan.id,
-          amount,
-          currency: selectedCurrency,
-          phone: profile?.phone ?? "",
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.link) {
-        toast.error(data.error ?? "Could not start payment.");
-        setProcessingPlan(null);
-        return;
-      }
-      // Stash context so /payment-callback can verify + redirect afterwards.
-      if (typeof window !== "undefined") {
-        window.sessionStorage.setItem(
-          "safehome:pending-payment",
-          JSON.stringify({ planId: plan.id, returnTo })
-        );
-      }
-      window.location.href = data.link;
-    } catch (err) {
-      console.error(err);
-      toast.error("Could not start payment. Please try again.");
-      setProcessingPlan(null);
+    const publicKey = process.env.NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY;
+    if (!publicKey) {
+      toast.error("Payment is not configured. Please contact support.");
+      return;
     }
+    if (typeof window === "undefined" || !window.FlutterwaveCheckout) {
+      toast.error("Payment widget hasn't loaded yet. Try again in a moment.");
+      return;
+    }
+    const amount = priceForPlan(plan);
+    const reference = `SUB_${Date.now()}_${user.id.substring(0, 8)}`;
+
+    setProcessingPlan(plan.id);
+    verifyingRef.current = null;
+
+    window.FlutterwaveCheckout({
+      public_key: publicKey,
+      tx_ref: reference,
+      amount,
+      currency: selectedCurrency,
+      payment_options: "card,banktransfer,ussd",
+      customer: {
+        email: user.email,
+        name:
+          (user.user_metadata?.name as string | undefined) ??
+          profile?.name ??
+          user.email,
+        phone_number: profile?.phone ?? "",
+      },
+      customizations: {
+        title: plan.name,
+        description: plan.description,
+      },
+      meta: {
+        plan_id: plan.id,
+        plan_name: plan.name,
+        user_id: user.id,
+        duration_days: plan.durationDays,
+      },
+      callback: (data: FlutterwaveCallbackData) => {
+        // Always verify server-side. Server handles success / cancelled / failed
+        // and writes the matching `transactions` row.
+        void verifyPayment(plan.id, data.tx_ref || reference);
+      },
+      onclose: () => {
+        // If the user closes the modal without paying, callback never fires.
+        // Reset the button state and write a cancelled transaction so we have
+        // a record.
+        if (!verifyingRef.current) {
+          verifyingRef.current = reference;
+          fetch("/api/payments/verify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ reference, planId: plan.id }),
+          }).catch(() => {});
+          setProcessingPlan(null);
+        }
+      },
+    });
   }
 
   if (authLoading || !user) {
@@ -120,6 +179,13 @@ function ListingPaymentInner() {
 
   return (
     <SiteShell>
+      <Script
+        src={FLUTTERWAVE_INLINE_SRC}
+        strategy="afterInteractive"
+        onLoad={() => setScriptReady(true)}
+        onReady={() => setScriptReady(true)}
+      />
+
       <div className="container mx-auto px-4 py-8 max-w-5xl space-y-8">
         <div className="text-center space-y-3">
           <div className="mx-auto size-16 rounded-full bg-accent grid place-items-center">
@@ -206,11 +272,15 @@ function ListingPaymentInner() {
                 <Button
                   className="w-full"
                   variant={plan.popular ? "default" : "secondary"}
-                  disabled={isProcessing || !!processingPlan}
+                  disabled={isProcessing || !!processingPlan || !scriptReady}
                   onClick={() => subscribe(plan)}
                 >
                   {isProcessing && <Loader2 className="size-4 animate-spin" />}
-                  {isProcessing ? "Redirecting…" : "Subscribe Now"}
+                  {isProcessing
+                    ? "Opening checkout…"
+                    : !scriptReady
+                      ? "Loading payment…"
+                      : "Subscribe Now"}
                 </Button>
               </Card>
             );
