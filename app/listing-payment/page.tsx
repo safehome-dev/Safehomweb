@@ -75,14 +75,18 @@ function ListingPaymentInner() {
     [selectedCurrency, rates]
   );
 
-  async function verifyPayment(planId: string, reference: string) {
+  async function verifyPayment(
+    planId: string,
+    reference: string,
+    transactionId?: number | string
+  ) {
     if (verifyingRef.current === reference) return;
     verifyingRef.current = reference;
     try {
       const res = await fetch("/api/payments/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reference, planId }),
+        body: JSON.stringify({ reference, planId, transactionId }),
       });
       const data = await res.json();
       if (res.ok && data.ok) {
@@ -146,9 +150,18 @@ function ListingPaymentInner() {
         duration_days: plan.durationDays,
       },
       callback: (data: FlutterwaveCallbackData) => {
+        // FW's inline modal doesn't auto-close — dismiss it ourselves before
+        // we kick off verification.
+        if (typeof window !== "undefined" && window.closePaymentModal) {
+          try {
+            window.closePaymentModal();
+          } catch {
+            /* ignore */
+          }
+        }
         // Always verify server-side. Server handles success / cancelled / failed
         // and writes the matching `transactions` row.
-        void verifyPayment(plan.id, data.tx_ref || reference);
+        void verifyPayment(plan.id, data.tx_ref || reference, data.transaction_id);
       },
       onclose: () => {
         // If the user closes the modal without paying, callback never fires.

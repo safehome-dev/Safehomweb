@@ -27,30 +27,29 @@ export default function NewListingPage() {
       router.replace(`/login?next=${encodeURIComponent("/listings/new")}`);
       return;
     }
+    let cancelled = false;
     (async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("subscriptions")
         .select("*")
         .eq("user_id", user.id)
         .eq("status", "active")
         .order("expires_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      const sub = (data as Subscription | null) ?? null;
-      if (isSubscriptionActive(sub)) {
-        setActive(sub);
-      } else {
-        // Hard redirect — mirror mobile gate.
-        router.replace(
-          `/listing-payment?returnTo=${encodeURIComponent("/listings/new")}`
-        );
-        return;
+        .limit(1);
+      if (cancelled) return;
+      if (error) {
+        console.error("[listings/new] subscription check failed:", error);
       }
+      const sub = ((data ?? [])[0] as Subscription | undefined) ?? null;
+      setActive(isSubscriptionActive(sub) ? sub : null);
       setChecking(false);
     })();
+    return () => {
+      cancelled = true;
+    };
   }, [user, authLoading, router, supabase]);
 
-  if (authLoading || checking) {
+  if (authLoading || (!user && !authLoading) || checking) {
     return (
       <SiteShell>
         <div className="container mx-auto px-4 py-20 text-center text-muted-foreground">
@@ -61,9 +60,38 @@ export default function NewListingPage() {
     );
   }
 
-  // Only render this if a subscription is active. Web doesn't yet have the
-  // full create-listing form (that's the next slice of work) — this is the
-  // success landing point after payment.
+  // No active subscription → show paywall card instead of redirecting,
+  // so the user can clearly see why they're here and choose a plan.
+  if (!active) {
+    return (
+      <SiteShell>
+        <div className="container mx-auto px-4 py-10 max-w-2xl">
+          <Card className="p-6 space-y-4 text-center">
+            <div className="mx-auto size-14 rounded-full bg-amber-50 grid place-items-center">
+              <Lock className="size-6 text-amber-600" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold">Subscription required</h1>
+              <p className="text-sm text-muted-foreground mt-1">
+                You need an active subscription to publish property listings.
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2 justify-center">
+              <Link href="/listing-payment?returnTo=/listings/new">
+                <Button className="gap-2">
+                  <CreditCard className="size-4" /> Choose a plan
+                </Button>
+              </Link>
+              <Link href="/">
+                <Button variant="outline">Back to home</Button>
+              </Link>
+            </div>
+          </Card>
+        </div>
+      </SiteShell>
+    );
+  }
+
   const userType = profile?.user_type ?? "renter";
   const canList =
     userType === "lister" || userType === "both" || profile?.role === "admin";
@@ -81,9 +109,9 @@ export default function NewListingPage() {
               <p className="text-sm text-muted-foreground">
                 Active plan:{" "}
                 <span className="font-medium text-foreground">
-                  {active?.plan_type ?? "—"}
+                  {active.plan_type ?? "—"}
                 </span>
-                {active?.expires_at && (
+                {active.expires_at && (
                   <>
                     {" "}
                     · expires{" "}

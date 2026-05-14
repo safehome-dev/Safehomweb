@@ -28,7 +28,8 @@ function PaymentCallbackInner() {
   const [returnTo, setReturnTo] = useState<string>("/listings/new");
 
   useEffect(() => {
-    const tx_ref = params.get("tx_ref") ?? params.get("transaction_id");
+    const tx_ref = params.get("tx_ref");
+    const transactionId = params.get("transaction_id");
     const fwStatus = params.get("status");
     setReference(tx_ref);
 
@@ -61,7 +62,7 @@ function PaymentCallbackInner() {
         void fetch("/api/payments/verify", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ reference: tx_ref, planId }),
+          body: JSON.stringify({ reference: tx_ref, planId, transactionId }),
         });
       }
       return;
@@ -81,7 +82,7 @@ function PaymentCallbackInner() {
         const res = await fetch("/api/payments/verify", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ reference: tx_ref, planId }),
+          body: JSON.stringify({ reference: tx_ref, planId, transactionId }),
         });
         const data = await res.json();
         if (res.ok && data.ok) {

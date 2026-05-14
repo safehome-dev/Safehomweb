@@ -38,6 +38,8 @@ export interface FlutterwaveCheckoutConfig {
 declare global {
   interface Window {
     FlutterwaveCheckout?: (config: FlutterwaveCheckoutConfig) => void;
+    /** Global function that explicitly dismisses the FW inline modal. */
+    closePaymentModal?: () => void;
   }
 }
 
