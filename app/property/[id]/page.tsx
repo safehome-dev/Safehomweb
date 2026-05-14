@@ -232,7 +232,7 @@ export default function PropertyDetailPage() {
   return (
     <SiteShell>
       <div className="container mx-auto px-4 py-6 grid lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-6 min-w-0">
           <Card className="p-0 overflow-hidden">
             <div className="relative aspect-video bg-muted group">
               <button
@@ -355,11 +355,14 @@ export default function PropertyDetailPage() {
             </div>
           )}
 
-          <div className="space-y-2">
-            <h1 className="text-2xl md:text-3xl font-bold">{property.title}</h1>
-            <div className="flex items-center text-muted-foreground gap-1">
-              <MapPin className="size-4" /> {property.location_address}, {property.location_city}
-              {property.location_state ? `, ${property.location_state}` : ""}, {property.location_country}
+          <div className="space-y-2 min-w-0">
+            <h1 className="text-2xl md:text-3xl font-bold break-words">{property.title}</h1>
+            <div className="flex items-start text-muted-foreground gap-1 min-w-0">
+              <MapPin className="size-4 shrink-0 mt-0.5" />
+              <span className="break-words min-w-0">
+                {property.location_address}, {property.location_city}
+                {property.location_state ? `, ${property.location_state}` : ""}, {property.location_country}
+              </span>
             </div>
             <div className="flex flex-wrap gap-3 text-sm">
               <Badge variant="secondary" className="gap-1">
@@ -378,7 +381,7 @@ export default function PropertyDetailPage() {
 
           <section>
             <h2 className="font-semibold mb-2">About this property</h2>
-            <p className="text-sm whitespace-pre-line leading-relaxed">{property.description}</p>
+            <p className="text-sm whitespace-pre-line leading-relaxed break-words">{property.description}</p>
           </section>
 
           {(property.amenities ?? []).length > 0 && (
@@ -395,7 +398,7 @@ export default function PropertyDetailPage() {
           {property.rules && (
             <section>
               <h2 className="font-semibold mb-2">House rules</h2>
-              <p className="text-sm whitespace-pre-line">{property.rules}</p>
+              <p className="text-sm whitespace-pre-line break-words">{property.rules}</p>
             </section>
           )}
 
@@ -447,7 +450,11 @@ export default function PropertyDetailPage() {
                 {reviews.slice(0, 5).map((r) => (
                   <Card key={r.id} className="p-3 text-sm">
                     <div className="font-medium">{"★".repeat(r.rating ?? 0)}</div>
-                    {r.comment && <div className="text-muted-foreground mt-1">{r.comment}</div>}
+                    {r.comment && (
+                      <div className="text-muted-foreground mt-1 break-words">
+                        {r.comment}
+                      </div>
+                    )}
                   </Card>
                 ))}
               </div>
