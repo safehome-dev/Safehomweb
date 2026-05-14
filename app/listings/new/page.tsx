@@ -15,6 +15,7 @@ import {
   Loader2,
   Lock,
   MapPin,
+  Phone,
   Star,
   Trash2,
   Video as VideoIcon,
@@ -364,6 +365,31 @@ export default function NewListingPage() {
                 <Button variant="outline">Back to home</Button>
               </Link>
             </div>
+          </Card>
+        </div>
+      </SiteShell>
+    );
+  }
+
+  // Phone gate — guests need a way to reach the lister.
+  if (!profile?.phone) {
+    return (
+      <SiteShell>
+        <div className="container mx-auto px-4 py-10 max-w-md">
+          <Card className="p-6 text-center space-y-4">
+            <div className="mx-auto size-14 rounded-full bg-amber-50 grid place-items-center">
+              <Phone className="size-6 text-amber-600" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold">Phone number required</h1>
+              <p className="text-sm text-muted-foreground mt-1">
+                Add your phone number first so guests booking your property can
+                reach you.
+              </p>
+            </div>
+            <Link href="/profile/edit">
+              <Button>Add phone number</Button>
+            </Link>
           </Card>
         </div>
       </SiteShell>

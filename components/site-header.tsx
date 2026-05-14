@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Bell, LogOut, User as UserIcon, Heart, MessageCircle, ClipboardList } from "lucide-react";
+import { LogOut, User as UserIcon, Heart, MessageCircle, ClipboardList } from "lucide-react";
 
 import { useAuth } from "@/lib/providers/auth-provider";
 import { useCurrency } from "@/lib/providers/currency-provider";
@@ -22,40 +22,11 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { useEffect, useState } from "react";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { NotificationsPopover } from "@/components/notifications-popover";
 
 export function SiteHeader() {
   const { user, profile, signOut } = useAuth();
   const { currencies, display, setDisplay } = useCurrency();
-  const supabase = getSupabaseBrowserClient();
-  const [unread, setUnread] = useState(0);
-
-  useEffect(() => {
-    if (!user) return;
-    let mounted = true;
-    const load = async () => {
-      const { count } = await supabase
-        .from("notifications")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", user.id)
-        .eq("is_read", false);
-      if (mounted) setUnread(count ?? 0);
-    };
-    load();
-    const channel = supabase
-      .channel("notifications-header")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
-        () => load()
-      )
-      .subscribe();
-    return () => {
-      mounted = false;
-      supabase.removeChannel(channel);
-    };
-  }, [user, supabase]);
 
   const firstName = (profile?.name ?? user?.email ?? "").split(" ")[0] || "";
 
@@ -128,16 +99,7 @@ export function SiteHeader() {
 
         {user ? (
           <>
-            <Link href="/messages" className="relative">
-              <Button variant="ghost" size="icon" aria-label="Notifications">
-                <Bell className="size-5" />
-              </Button>
-              {unread > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-destructive text-white text-xs font-bold flex items-center justify-center">
-                  {unread > 99 ? "99+" : unread}
-                </span>
-              )}
-            </Link>
+            <NotificationsPopover />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="rounded-full focus:outline-none focus:ring-2 focus:ring-ring">

@@ -113,6 +113,10 @@ export default function EditProfilePage() {
       toast.error("Please enter your name.");
       return;
     }
+    if (!phone.trim()) {
+      toast.error("Please enter your phone number.");
+      return;
+    }
     setSaving(true);
     try {
       const { error } = await supabase.from("profiles").upsert({
@@ -226,7 +230,9 @@ export default function EditProfilePage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone number</Label>
+              <Label htmlFor="phone">
+                Phone number <span className="text-destructive">*</span>
+              </Label>
               <Input
                 id="phone"
                 type="tel"
@@ -234,7 +240,12 @@ export default function EditProfilePage() {
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="+44 123 456 7890"
+                required
               />
+              <p className="text-xs text-muted-foreground">
+                Required — this is how guests, roommates and service customers
+                reach you.
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -279,7 +290,7 @@ export default function EditProfilePage() {
 
           <Button
             type="submit"
-            disabled={saving || uploading || !name.trim()}
+            disabled={saving || uploading || !name.trim() || !phone.trim()}
             className="w-full gap-2"
           >
             {saving && <Loader2 className="size-4 animate-spin" />}
