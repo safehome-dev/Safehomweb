@@ -134,6 +134,9 @@ export function RoommatesTab({ search, filters }: Props) {
             key={p.id}
             profile={p}
             onSkip={() => setDismissed((s) => new Set(s).add(p.id))}
+            onBlocked={() =>
+              setItems((prev) => prev.filter((r) => r.user_id !== p.user_id))
+            }
           />
         ))}
       </div>
