@@ -32,7 +32,7 @@ export function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-card/80 backdrop-blur supports-[backdrop-filter]:bg-card/60">
-      <div className="container mx-auto px-4 h-16 flex items-center gap-4">
+      <div className="container mx-auto px-3 sm:px-4 h-16 flex items-center gap-2 sm:gap-4 min-w-0">
         <Link href="/" className="text-xl font-bold text-primary shrink-0">
           SafeHome
         </Link>
@@ -68,9 +68,9 @@ export function SiteHeader() {
 
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="ghost" size="sm" className="gap-1">
+            <Button variant="ghost" size="sm" className="gap-1 px-2 shrink-0">
               <span>{CURRENCY_FLAGS[display] ?? "🌐"}</span>
-              <span className="font-medium">{display}</span>
+              <span className="font-medium hidden sm:inline">{display}</span>
             </Button>
           </PopoverTrigger>
           <PopoverContent align="end" className="w-56 p-1">
@@ -139,8 +139,8 @@ export function SiteHeader() {
             </DropdownMenu>
           </>
         ) : (
-          <div className="flex items-center gap-2">
-            <Link href="/login">
+          <div className="flex items-center gap-2 shrink-0">
+            <Link href="/login" className="hidden sm:block">
               <Button variant="ghost" size="sm">Sign in</Button>
             </Link>
             <Link href="/signup">
