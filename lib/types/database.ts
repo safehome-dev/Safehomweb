@@ -84,7 +84,7 @@ export interface ServiceProvider {
 export interface RoommateProfile {
   id: string;
   user_id: string;
-  profile_type: "seeking" | "has_room" | string;
+  profile_type: "seeking" | "offering" | string;
   title: string;
   bio: string | null;
   age: number | null;

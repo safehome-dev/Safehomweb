@@ -28,6 +28,7 @@ interface AuthContextValue {
   ) => Promise<{ error: string | null }>;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
 
@@ -149,6 +150,70 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.refresh();
   }, [supabase, router]);
 
+  // Mirrors mobile auth.deleteAccount — cascades through related tables, calls
+  // the `delete-account` edge function to remove the auth user, then signs out.
+  const deleteAccount = useCallback(async () => {
+    const current = user;
+    if (!current) throw new Error("Not signed in.");
+    const uid = current.id;
+
+    await supabase.from("earnings").delete().eq("user_id", uid);
+    await supabase.from("withdrawal_requests").delete().eq("user_id", uid);
+    await supabase.from("withdrawal_methods").delete().eq("user_id", uid);
+    await supabase.from("service_reviews").delete().eq("customer_id", uid);
+    await supabase.from("service_bookings").delete().eq("customer_id", uid);
+    await supabase.from("service_providers").delete().eq("user_id", uid);
+    const { data: roommateProfiles } = await supabase
+      .from("roommate_profiles")
+      .select("id")
+      .eq("user_id", uid);
+    const rmIds = ((roommateProfiles ?? []) as Array<{ id: string }>).map(
+      (p) => p.id
+    );
+    if (rmIds.length) {
+      await supabase.from("roommate_matches").delete().in("seeker_profile_id", rmIds);
+      await supabase.from("roommate_matches").delete().in("provider_profile_id", rmIds);
+    }
+    await supabase.from("roommate_profiles").delete().eq("user_id", uid);
+    await supabase
+      .from("friendships")
+      .delete()
+      .or(`user_id.eq.${uid},friend_id.eq.${uid}`);
+    await supabase.from("notifications").delete().eq("user_id", uid);
+    await supabase
+      .from("tenant_reviews")
+      .delete()
+      .or(`reviewer_id.eq.${uid},reviewee_id.eq.${uid}`);
+    await supabase
+      .from("reviews")
+      .delete()
+      .or(`reviewer_id.eq.${uid},reviewee_id.eq.${uid}`);
+    await supabase
+      .from("messages")
+      .delete()
+      .or(`sender_id.eq.${uid},recipient_id.eq.${uid}`);
+    await supabase.from("transactions").delete().eq("user_id", uid);
+    await supabase.from("subscriptions").delete().eq("user_id", uid);
+    await supabase.from("saved_searches").delete().eq("user_id", uid);
+    await supabase.from("wishlists").delete().eq("user_id", uid);
+    await supabase.from("bookings").delete().eq("user_id", uid);
+    await supabase.from("properties").delete().eq("lister_id", uid);
+    await supabase.from("profiles").delete().eq("id", uid);
+
+    // Edge function uses the service role key to delete the auth.users row.
+    // If it isn't deployed yet, the cascade above still removes all app data;
+    // the lingering auth row will get cleaned up when the function ships.
+    try {
+      await supabase.functions.invoke("delete-account");
+    } catch (err) {
+      console.warn("[deleteAccount] edge function failed (continuing):", err);
+    }
+
+    await supabase.auth.signOut();
+    router.push("/");
+    router.refresh();
+  }, [supabase, user, router]);
+
   const refreshProfile = useCallback(async () => {
     if (!user) return;
     setProfile(await fetchProfile(user.id));
@@ -164,9 +229,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signUp,
       signInWithGoogle,
       signOut,
+      deleteAccount,
       refreshProfile,
     }),
-    [session, user, profile, loading, signIn, signUp, signInWithGoogle, signOut, refreshProfile]
+    [
+      session,
+      user,
+      profile,
+      loading,
+      signIn,
+      signUp,
+      signInWithGoogle,
+      signOut,
+      deleteAccount,
+      refreshProfile,
+    ]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

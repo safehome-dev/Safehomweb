@@ -110,7 +110,7 @@ export function RoommateCard({ profile, onSkip, onLiked }: Props) {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={image} alt={name} className="size-full object-cover" loading="lazy" />
           <Badge className="absolute top-3 left-3 bg-brand text-white">
-            {profile.profile_type === "seeking" ? "Seeking Room" : "Has Room"}
+            {profile.profile_type === "seeking" ? "Seeking Room" : "Offering Room"}
           </Badge>
           <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/80 via-black/40 to-transparent text-white">
             <div className="font-semibold text-lg">
