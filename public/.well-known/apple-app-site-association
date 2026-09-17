@@ -1,0 +1,11 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "WK64FU6727.com.safehomes.safehome",
+        "paths": ["/live/*"]
+      }
+    ]
+  }
+}

@@ -1,0 +1,10 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.safehomes.safehome",
+      "sha256_cert_fingerprints": ["05:F2:D4:0C:6E:31:53:F8:94:D9:CA:0A:7B:63:EC:31:D8:D9:F1:00:D8:45:FD:72:98:02:BC:15:CC:DE:13:64"]
+    }
+  }
+]
