@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-const APP_STORE = "https://apps.apple.com/app/id0000000000";
+const APP_STORE = "https://apps.apple.com/app/id6759487924";
 const PLAY_STORE =
   "https://play.google.com/store/apps/details?id=com.safehomes.safehome";
 
