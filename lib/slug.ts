@@ -69,6 +69,12 @@ export function serviceHref(p: { id: string; business_name: string }): string {
   return slug ? `/services/${slug}-${code}` : `/services/${code}`;
 }
 
+export function roommateHref(p: { id: string; name?: string | null }): string {
+  const slug = p.name ? slugify(p.name) : "";
+  const code = uuidToCode(p.id);
+  return slug ? `/roommate/${slug}-${code}` : `/roommate/${code}`;
+}
+
 export function extractIdFromParam(
   param: string | undefined | null
 ): string | null {

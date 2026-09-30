@@ -20,6 +20,8 @@ import {
 import { toast } from "sonner";
 
 import { SiteShell } from "@/components/site-shell";
+import { OpenInApp } from "@/components/open-in-app";
+import { appLink } from "@/lib/app-links";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -527,6 +529,12 @@ export default function PropertyDetailPage() {
               Book property
             </Button>
           </Card>
+
+          <OpenInApp
+            deepLink={appLink.property(property.id)}
+            label="this listing"
+            className="mt-4"
+          />
         </aside>
       </div>
     </SiteShell>

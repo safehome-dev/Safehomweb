@@ -13,6 +13,7 @@ import { PropertiesTab } from "@/components/home/properties-tab";
 import { ServicesTab } from "@/components/home/services-tab";
 import { RoommatesTab } from "@/components/home/roommates-tab";
 import { FriendsTab } from "@/components/home/friends-tab";
+import { StoriesRail } from "@/components/stories-rail";
 import { useAuth } from "@/lib/providers/auth-provider";
 
 export default function HomePage() {
@@ -31,6 +32,10 @@ export default function HomePage() {
   return (
     <SiteShell>
       <div className="container mx-auto px-4 py-6 space-y-6">
+        {/* Renders nothing when nobody has an unexpired story, so the page
+            does not carry an empty row on a quiet day. */}
+        <StoriesRail />
+
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />

@@ -8,6 +8,9 @@ import { Star, BadgeCheck, MessageCircle, MapPin } from "lucide-react";
 import { extractIdFromParam, serviceHref } from "@/lib/slug";
 
 import { SiteShell } from "@/components/site-shell";
+import { OpenInApp } from "@/components/open-in-app";
+import { ShareButton } from "@/components/share-button";
+import { appLink } from "@/lib/app-links";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -183,7 +186,20 @@ export default function ServiceProviderPage() {
             <Link href={`${serviceHref(provider)}/book`}>
               <Button variant="secondary" className="w-full">Book service</Button>
             </Link>
+            <ShareButton
+              href={serviceHref(provider)}
+              title={provider.business_name}
+              text={`${provider.business_name} on SafeHome`}
+              stopPropagation={false}
+              className="w-full"
+            />
           </Card>
+
+          <OpenInApp
+            deepLink={appLink.service(provider.id)}
+            label="this service"
+            className="mt-4"
+          />
         </aside>
       </div>
     </SiteShell>

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Star, BadgeCheck } from "lucide-react";
+import { Star, BadgeCheck, ArrowRight } from "lucide-react";
 
 import type { ServiceProvider, Profile } from "@/lib/types/database";
 import { useCurrency } from "@/lib/providers/currency-provider";
@@ -12,6 +12,7 @@ import { serviceHref } from "@/lib/slug";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { ShareButton } from "@/components/share-button";
 
 interface Props {
   provider: ServiceProvider & { profile?: Pick<Profile, "name" | "avatar_url"> | null };
@@ -77,6 +78,14 @@ export function ServiceCard({ provider }: Props) {
                 {formatPrice(hourly, display)}/hr
               </span>
             )}
+          </div>
+          <div className="flex items-center justify-between border-t pt-2">
+            <ShareButton
+              href={serviceHref(provider)}
+              title={provider.business_name}
+              text={`${provider.business_name} on SafeHome`}
+            />
+            <ArrowRight className="size-4 text-muted-foreground" />
           </div>
         </div>
       </Card>

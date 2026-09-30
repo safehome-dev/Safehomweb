@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Heart, BedDouble, Bath, Camera, Share2, Box, ArrowRight, Trash2 } from "lucide-react";
+import { Heart, BedDouble, Bath, Camera, ArrowRight, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import type { Property } from "@/lib/types/database";
@@ -16,6 +16,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { ShareButton } from "@/components/share-button";
 
 interface Props {
   property: Property;
@@ -79,20 +80,6 @@ export function PropertyCard({ property, onRemove, removable }: Props) {
     setWorking(false);
   }
 
-  async function share(e: React.MouseEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    const url = `${window.location.origin}${propertyHref(property)}`;
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: property.title, url });
-      } catch {}
-    } else {
-      await navigator.clipboard.writeText(url);
-      toast.success("Link copied");
-    }
-  }
-
   return (
     <Card className="group overflow-hidden p-0 hover:shadow-lg transition-shadow">
       <Link href={propertyHref(property)} className="block">
@@ -148,21 +135,15 @@ export function PropertyCard({ property, onRemove, removable }: Props) {
             </div>
           </div>
           <div className="flex items-center justify-between pt-3 border-t">
+            {/* Share is the only action down here now. The bookmark repeated
+                the heart already sitting on the image, and the 3D tour button
+                was permanently disabled - neither did anything when clicked. */}
             <div className="flex items-center gap-1">
-              <Button size="icon" variant="ghost" onClick={share} aria-label="Share">
-                <Share2 className="size-4" />
-              </Button>
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={toggleFavorite}
-                aria-label="Bookmark"
-              >
-                <Heart className={`size-4 ${favorite ? "fill-primary text-primary" : ""}`} />
-              </Button>
-              <Button size="icon" variant="ghost" aria-label="3D tour" disabled>
-                <Box className="size-4" />
-              </Button>
+              <ShareButton
+                href={propertyHref(property)}
+                title={property.title}
+                text={`${property.title} on SafeHome`}
+              />
               {removable && (
                 <Button
                   size="icon"

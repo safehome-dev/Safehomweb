@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import {
   Ban,
@@ -24,6 +25,7 @@ import { formatPrice } from "@/lib/currency";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { avatarFallback } from "@/lib/fallback-image";
 import { invalidate } from "@/lib/cache";
+import { roommateHref } from "@/lib/slug";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -34,6 +36,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { ShareButton } from "@/components/share-button";
 
 interface Props {
   profile: RoommateProfile & { profile?: Pick<Profile, "name" | "avatar_url" | "phone"> | null };
@@ -243,6 +246,14 @@ export function RoommateCard({ profile, onSkip, onLiked, onBlocked }: Props) {
           >
             <Flag className="size-5" />
           </Button>
+          {/* Shares the profile's own page rather than the homepage, so the
+              link opens on the person the sender was actually looking at. */}
+          <ShareButton
+            href={roommateHref({ id: profile.id, name })}
+            title={name}
+            text={`${name} is looking for a room on SafeHome`}
+            className="size-9"
+          />
           <Button
             size="icon"
             variant="ghost"
@@ -381,6 +392,15 @@ export function RoommateCard({ profile, onSkip, onLiked, onBlocked }: Props) {
                 <div className="text-2xl font-bold text-amber-600">{priceBlock}</div>
               </div>
             )}
+
+            {/* The modal is for browsing; the page behind this link is the
+                shareable address for the same profile, and the one the app
+                opens from a shared link. */}
+            <Button variant="outline" asChild className="w-full">
+              <Link href={roommateHref({ id: profile.id, name })}>
+                View full profile
+              </Link>
+            </Button>
 
             {/* Safety actions */}
             <div className="grid grid-cols-2 gap-2">

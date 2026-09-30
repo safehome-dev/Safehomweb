@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { LogOut, User as UserIcon, Heart, MessageCircle, ClipboardList } from "lucide-react";
 
@@ -33,8 +34,20 @@ export function SiteHeader() {
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-card/80 backdrop-blur supports-[backdrop-filter]:bg-card/60">
       <div className="container mx-auto px-3 sm:px-4 h-16 flex items-center gap-2 sm:gap-4 min-w-0">
-        <Link href="/" className="text-xl font-bold text-primary shrink-0">
-          SafeHome
+        {/* The mark is the app icon, which is a dark navy tile - rounding it
+            and keeping it small is what stops it reading as a stray image on a
+            light header. The wordmark stays for narrow screens where the tile
+            alone would not say whose site this is. */}
+        <Link href="/" className="flex shrink-0 items-center gap-2" aria-label="SafeHome home">
+          <Image
+            src="/logo.png"
+            alt=""
+            width={36}
+            height={36}
+            priority
+            className="size-9 rounded-lg object-cover"
+          />
+          <span className="text-xl font-bold text-primary">SafeHome</span>
         </Link>
 
         {user && (

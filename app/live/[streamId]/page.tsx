@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import OpenInApp from "./OpenInApp";
+import { OpenInApp } from "@/components/open-in-app";
+import { appLink } from "@/lib/app-links";
 
 /**
  * The page behind a shared SafeHome live link.
@@ -42,7 +43,11 @@ export default async function LiveStreamLanding({
           Open the app to join the property tour.
         </p>
 
-        <OpenInApp streamId={streamId} />
+        <OpenInApp
+          deepLink={appLink.live(streamId)}
+          label="the live tour"
+          className="mt-6 text-left"
+        />
 
         <p className="mt-6 border-t border-slate-200 pt-5 text-xs text-slate-500">
           Live tours end when the host stops broadcasting, so this link only

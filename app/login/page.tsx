@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
@@ -66,7 +67,17 @@ function LoginPageInner() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <Link href="/" className="text-2xl font-bold text-primary mb-2">
+          <Link
+            href="/"
+            className="mb-2 inline-flex items-center justify-center gap-2 text-2xl font-bold text-primary"
+          >
+            <Image
+              src="/logo.png"
+              alt=""
+              width={40}
+              height={40}
+              className="size-10 rounded-xl object-cover"
+            />
             SafeHome
           </Link>
           <CardTitle className="text-2xl">Welcome back</CardTitle>

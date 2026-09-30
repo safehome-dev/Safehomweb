@@ -16,6 +16,14 @@ export const metadata: Metadata = {
   title: "SafeHome — Rent, Roommates & Services",
   description:
     "Find homes, list properties, match with roommates and book trusted local services — all in one place.",
+  icons: { icon: "/favicon.png", apple: "/logo.png" },
+  openGraph: {
+    title: "SafeHome — Rent, Roommates & Services",
+    description:
+      "Find homes, list properties, match with roommates and book trusted local services.",
+    images: ["/logo.png"],
+    type: "website",
+  },
 };
 
 export default function RootLayout({
