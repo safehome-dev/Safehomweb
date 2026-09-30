@@ -140,9 +140,13 @@ export function RoommatesTab({ search, filters }: Props) {
 
   if (loading) {
     return (
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <Skeleton key={i} className="aspect-[3/4] rounded-xl" />
+      <div className="grid grid-cols-1 gap-x-5 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div key={i} className="space-y-2">
+            <Skeleton className="aspect-[3/4] w-full rounded-2xl" />
+            <Skeleton className="h-4 w-3/4" />
+            <Skeleton className="h-3.5 w-1/2" />
+          </div>
         ))}
       </div>
     );
@@ -158,7 +162,7 @@ export function RoommatesTab({ search, filters }: Props) {
 
   return (
     <div>
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-x-5 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {searched.map((p) => (
           <RoommateCard
             key={p.id}

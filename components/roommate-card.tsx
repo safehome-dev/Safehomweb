@@ -29,7 +29,6 @@ import { roommateHref } from "@/lib/slug";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -199,16 +198,18 @@ export function RoommateCard({ profile, onSkip, onLiked, onBlocked }: Props) {
   return (
     <>
       {/* Card */}
-      <Card
-        onClick={() => setOpen(true)}
-        className="overflow-hidden p-0 cursor-pointer hover:shadow-lg transition-shadow"
-      >
-        <div className="relative aspect-[3/4] bg-muted">
+      <div onClick={() => setOpen(true)} className="group cursor-pointer">
+        <div className="relative aspect-[3/4] overflow-hidden rounded-2xl bg-muted">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={cardImage} alt={name} className="size-full object-cover" loading="lazy" />
-          <Badge className="absolute top-3 left-3 bg-primary text-primary-foreground">
-            {profile.profile_type === "seeking" ? "Seeking Room" : "Offering Room"}
-          </Badge>
+          <img
+            src={cardImage}
+            alt={name}
+            loading="lazy"
+            className="size-full object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+          <span className="absolute left-3 top-3 rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-semibold text-slate-900 shadow-sm">
+            {profile.profile_type === "seeking" ? "Seeking room" : "Offering room"}
+          </span>
           <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/80 via-black/40 to-transparent text-white">
             <div className="font-semibold text-lg">
               {name}
@@ -226,7 +227,7 @@ export function RoommateCard({ profile, onSkip, onLiked, onBlocked }: Props) {
             )}
           </div>
         </div>
-        <div className="flex items-center justify-around p-2 border-t bg-card">
+        <div className="flex items-center justify-around pt-1.5">
           <Button
             size="icon"
             variant="ghost"
@@ -266,7 +267,7 @@ export function RoommateCard({ profile, onSkip, onLiked, onBlocked }: Props) {
             />
           </Button>
         </div>
-      </Card>
+      </div>
 
       {/* Detail modal */}
       <Dialog open={open} onOpenChange={setOpen}>

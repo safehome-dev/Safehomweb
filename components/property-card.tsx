@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Heart, BedDouble, Bath, Camera, ArrowRight, Trash2 } from "lucide-react";
+import { Heart, Share2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import type { Property } from "@/lib/types/database";
@@ -13,17 +13,25 @@ import { propertyFallbackImage } from "@/lib/fallback-image";
 import { propertyHref } from "@/lib/slug";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { ShareButton } from "@/components/share-button";
-
 interface Props {
   property: Property;
   onRemove?: () => void;
   removable?: boolean;
 }
 
+/**
+ * A listing, as a picture with a caption.
+ *
+ * There is deliberately no card: no border, no panel, no shadow, no divider
+ * rule. Chrome around every tile is what makes a grid look busy, and once
+ * twenty-four of them are on screen the borders are the loudest thing there.
+ * The photograph carries the card and the text sits quietly underneath it,
+ * which is the arrangement every listings site converges on.
+ *
+ * Actions live on the image rather than in a row beneath it, so the caption
+ * stays three calm lines of fact and the buttons are next to the thing they
+ * act on.
+ */
 export function PropertyCard({ property, onRemove, removable }: Props) {
   const { user } = useAuth();
   const { convert, display } = useCurrency();
@@ -33,6 +41,7 @@ export function PropertyCard({ property, onRemove, removable }: Props) {
 
   useEffect(() => {
     if (!user) return;
+    let cancelled = false;
     (async () => {
       const { data } = await supabase
         .from("wishlists")
@@ -40,28 +49,46 @@ export function PropertyCard({ property, onRemove, removable }: Props) {
         .eq("user_id", user.id)
         .eq("property_id", property.id)
         .maybeSingle();
-      setFavorite(!!data);
+      if (!cancelled) setFavorite(!!data);
     })();
+    return () => {
+      cancelled = true;
+    };
   }, [user, property.id, supabase]);
 
   const images = (property.images ?? []) as string[];
-  const hero = images[0] ?? propertyFallbackImage(property.title, property.location_city);
-  const photoCount = images.length;
+  const hero =
+    images[0] ?? propertyFallbackImage(property.title, property.location_city);
 
+  // Only badge a listing when the badge distinguishes it. Every listing in the
+  // database is rental_type 'any', so an "Available" pill rendered on all of
+  // them was pure decoration - it cost a corner of every photograph to say
+  // nothing. Rent and sale are worth calling out; nothing else is.
   const statusLabel =
     property.rental_type === "rent"
-      ? "For Rent"
+      ? "For rent"
       : property.rental_type === "sale"
-        ? "For Sale"
-        : "Available";
+        ? "For sale"
+        : null;
 
   const priceTarget = convert(Number(property.price), property.currency ?? "GBP");
+
+  const where = [property.location_city, property.location_country]
+    .filter(Boolean)
+    .join(", ");
+
+  const rooms = [
+    property.bedrooms ? `${property.bedrooms} bed${property.bedrooms > 1 ? "s" : ""}` : null,
+    property.bathrooms ? `${property.bathrooms} bath${property.bathrooms > 1 ? "s" : ""}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   async function toggleFavorite(e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
     if (!user) {
-      toast.error("Please login to add properties to your wishlist");
+      toast.error("Please log in to save properties");
       return;
     }
     setWorking(true);
@@ -73,96 +100,127 @@ export function PropertyCard({ property, onRemove, removable }: Props) {
         .eq("property_id", property.id);
       setFavorite(false);
     } else {
-      await supabase.from("wishlists").insert({ user_id: user.id, property_id: property.id });
+      await supabase
+        .from("wishlists")
+        .insert({ user_id: user.id, property_id: property.id });
       setFavorite(true);
-      toast.success("Added to wishlist");
+      toast.success("Saved");
     }
     setWorking(false);
   }
 
+  async function share(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    const url = `${window.location.origin}${propertyHref(property)}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: property.title, url });
+      } catch {
+        // Dismissing the sheet lands here too.
+      }
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success("Link copied");
+    } catch {
+      toast.error("Could not copy the link");
+    }
+  }
+
   return (
-    <Card className="group overflow-hidden p-0 hover:shadow-lg transition-shadow">
-      <Link href={propertyHref(property)} className="block">
-        <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={hero}
-            alt={property.title}
-            className="size-full object-cover group-hover:scale-105 transition-transform duration-500"
-            loading="lazy"
-          />
-          <div className="absolute top-3 left-3">
-            <Badge className="bg-primary text-primary-foreground shadow">{statusLabel}</Badge>
-          </div>
-          <button
-            onClick={toggleFavorite}
-            disabled={working}
-            aria-label="Toggle favorite"
-            className="absolute top-3 right-3 size-10 rounded-full bg-white/95 hover:bg-white grid place-items-center shadow disabled:opacity-60"
+    <Link href={propertyHref(property)} className="group block">
+      <div className="relative aspect-[20/19] overflow-hidden rounded-2xl bg-muted">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={hero}
+          alt={property.title}
+          loading="lazy"
+          className="size-full object-cover transition-transform duration-500 group-hover:scale-105"
+        />
+
+        {statusLabel && (
+          <span className="absolute left-3 top-3 rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-semibold text-slate-900 shadow-sm">
+            {statusLabel}
+          </span>
+        )}
+
+        {/* Icon buttons stay legible over any photograph: a translucent white
+            disc rather than a bare glyph, which disappears on pale images. */}
+        <div className="absolute right-2.5 top-2.5 flex items-center gap-1.5">
+          <IconButton
+            onClick={share}
+            label={`Share ${property.title}`}
+            className="opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 max-sm:opacity-100"
           >
-            <Heart
-              className={`size-5 ${favorite ? "fill-red-500 text-red-500" : "text-slate-700"}`}
-            />
-          </button>
-          {photoCount > 1 && (
-            <div className="absolute bottom-3 left-3 inline-flex items-center gap-1 px-2 py-1 rounded-md bg-black/60 text-white text-xs">
-              <Camera className="size-3.5" />
-              {photoCount} photos
-            </div>
+            <Share2 className="size-4 text-slate-700" />
+          </IconButton>
+
+          {removable ? (
+            <IconButton
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onRemove?.();
+              }}
+              label="Remove from wishlist"
+            >
+              <Trash2 className="size-4 text-destructive" />
+            </IconButton>
+          ) : (
+            <IconButton onClick={toggleFavorite} disabled={working} label="Save">
+              <Heart
+                className={
+                  favorite ? "size-4 fill-red-500 text-red-500" : "size-4 text-slate-700"
+                }
+              />
+            </IconButton>
           )}
         </div>
+      </div>
 
-        <div className="p-4 space-y-2">
-          <h3 className="font-semibold text-base line-clamp-1">{property.title}</h3>
-          <p className="text-sm text-muted-foreground line-clamp-1">
-            📍 {property.location_city}
-            {property.location_state ? `, ${property.location_state}` : ""}, {property.location_country}
-          </p>
-          <div className="flex items-center justify-between pt-1">
-            <div className="text-lg font-bold text-primary">
-              {formatPrice(priceTarget, display)}
-              {property.rental_type === "rent" && (
-                <span className="text-xs text-muted-foreground font-normal"> /mo</span>
-              )}
-            </div>
-            <div className="flex items-center gap-3 text-sm text-muted-foreground">
-              <span className="inline-flex items-center gap-1">
-                <BedDouble className="size-4" /> {property.bedrooms}
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <Bath className="size-4" /> {property.bathrooms}
-              </span>
-            </div>
-          </div>
-          <div className="flex items-center justify-between pt-3 border-t">
-            {/* Share is the only action down here now. The bookmark repeated
-                the heart already sitting on the image, and the 3D tour button
-                was permanently disabled - neither did anything when clicked. */}
-            <div className="flex items-center gap-1">
-              <ShareButton
-                href={propertyHref(property)}
-                title={property.title}
-                text={`${property.title} on SafeHome`}
-              />
-              {removable && (
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    onRemove?.();
-                  }}
-                  aria-label="Remove from wishlist"
-                >
-                  <Trash2 className="size-4 text-destructive" />
-                </Button>
-              )}
-            </div>
-            <ArrowRight className="size-4 text-muted-foreground" />
-          </div>
-        </div>
-      </Link>
-    </Card>
+      <div className="pt-3">
+        <h3 className="truncate text-[15px] font-medium text-foreground">
+          {property.title}
+        </h3>
+        {where && (
+          <p className="truncate text-sm text-muted-foreground">{where}</p>
+        )}
+        {rooms && <p className="truncate text-sm text-muted-foreground">{rooms}</p>}
+        <p className="pt-1 text-[15px] text-foreground">
+          <span className="font-semibold">{formatPrice(priceTarget, display)}</span>
+          {property.rental_type === "rent" && (
+            <span className="text-muted-foreground"> / month</span>
+          )}
+        </p>
+      </div>
+    </Link>
+  );
+}
+
+function IconButton({
+  children,
+  onClick,
+  label,
+  disabled,
+  className = "",
+}: {
+  children: React.ReactNode;
+  onClick: (e: React.MouseEvent) => void;
+  label: string;
+  disabled?: boolean;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      className={`grid size-8 place-items-center rounded-full bg-white/90 shadow-sm backdrop-blur transition-colors hover:bg-white disabled:opacity-60 ${className}`}
+    >
+      {children}
+    </button>
   );
 }
