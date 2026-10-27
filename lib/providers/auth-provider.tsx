@@ -26,7 +26,7 @@ interface AuthContextValue {
     password: string,
     name: string
   ) => Promise<{ error: string | null }>;
-  signInWithGoogle: () => Promise<void>;
+  signInWithGoogle: (next?: string) => Promise<void>;
   signOut: () => Promise<void>;
   deleteAccount: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -135,11 +135,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [supabase]
   );
 
-  const signInWithGoogle = useCallback(async () => {
+  const signInWithGoogle = useCallback(async (next?: string) => {
+    const query = next ? `?next=${encodeURIComponent(next)}` : "";
     await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `${window.location.origin}/auth/callback${query}`,
       },
     });
   }, [supabase]);

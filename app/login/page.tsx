@@ -36,10 +36,14 @@ function LoginPageInner() {
   const [agree, setAgree] = useState(false);
   const [agreeError, setAgreeError] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  // Where to go once signed in. Only same-site paths, so a crafted link can't
+  // bounce someone off to another site after they log in.
+  const nextParam = params.get("next");
+  const next = nextParam?.startsWith("/") && !nextParam.startsWith("//") ? nextParam : "/";
 
   useEffect(() => {
-    if (!loading && user) router.replace("/");
-  }, [user, loading, router]);
+    if (!loading && user) router.replace(next);
+  }, [user, loading, router, next]);
 
   useEffect(() => {
     if (params.get("error") === "auth_failed") {
@@ -59,7 +63,7 @@ function LoginPageInner() {
     if (error) {
       toast.error(error);
     } else {
-      router.replace("/");
+      router.replace(next);
     }
   }
 
@@ -162,7 +166,7 @@ function LoginPageInner() {
                 setAgreeError(true);
                 return;
               }
-              signInWithGoogle();
+              signInWithGoogle(next);
             }}
           >
             Continue with Google

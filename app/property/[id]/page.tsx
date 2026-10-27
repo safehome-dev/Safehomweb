@@ -43,7 +43,7 @@ export default function PropertyDetailPage() {
   const id = useMemo(() => extractIdFromParam(params?.id), [params?.id]);
   const router = useRouter();
   const supabase = getSupabaseBrowserClient();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { convert, display } = useCurrency();
   const [property, setProperty] = useState<Property | null>(null);
   const [lister, setLister] = useState<Profile | null>(null);
@@ -54,7 +54,8 @@ export default function PropertyDetailPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!id) return;
+    // Listings are for signed-in users only; the gate below asks them to sign in.
+    if (!id || !user) return;
     let ignore = false;
     (async () => {
       setLoading(true);
@@ -107,7 +108,7 @@ export default function PropertyDetailPage() {
     return () => {
       ignore = true;
     };
-  }, [id, supabase]);
+  }, [id, supabase, user]);
 
   useEffect(() => {
     if (!user || !property) return;
@@ -197,7 +198,29 @@ export default function PropertyDetailPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, [lightbox, goPrev, goNext]);
 
-  if (loading) {
+  if (!authLoading && !user) {
+    const here = typeof window !== "undefined" ? window.location.pathname : "/";
+    return (
+      <SiteShell>
+        <div className="container mx-auto max-w-md px-4 py-20 text-center">
+          <h1 className="text-2xl font-bold text-slate-900">Sign in to view this property</h1>
+          <p className="mt-2 text-muted-foreground">
+            Create a free account or sign in to see photos, prices and contact the lister.
+          </p>
+          <div className="mt-6 flex justify-center gap-3">
+            <Link href={`/login?next=${encodeURIComponent(here)}`}>
+              <Button>Sign in</Button>
+            </Link>
+            <Link href="/signup">
+              <Button variant="outline">Create account</Button>
+            </Link>
+          </div>
+        </div>
+      </SiteShell>
+    );
+  }
+
+  if (loading || authLoading) {
     return (
       <SiteShell>
         <div className="container mx-auto px-4 py-8 space-y-4">
