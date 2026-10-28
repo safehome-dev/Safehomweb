@@ -116,7 +116,7 @@ export default async function ServiceLayout({
             name: service.business_name,
             description: truncate(service.bio, 500),
             url: `${SITE_URL}${serviceHref({ id: service.id, business_name: service.business_name ?? "" })}`,
-            ...(image ? { image: previewImage(image) } : {}),
+            ...(image ? { image: new URL(previewImage(image), SITE_URL).toString() } : {}),
             address: {
               "@type": "PostalAddress",
               addressLocality: service.city,

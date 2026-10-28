@@ -103,7 +103,7 @@ export default async function PropertyLayout({
             name: property.title,
             description: truncate(property.description, 500),
             url: `${SITE_URL}${propertyHref({ id: property.id, title: property.title ?? "" })}`,
-            ...(image ? { image: previewImage(image) } : {}),
+            ...(image ? { image: new URL(previewImage(image), SITE_URL).toString() } : {}),
             ...(property.bedrooms ? { numberOfBedrooms: property.bedrooms } : {}),
             ...(property.bathrooms ? { numberOfBathroomsTotal: property.bathrooms } : {}),
             address: {

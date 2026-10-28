@@ -45,24 +45,16 @@ export function firstImage(images: unknown): string | null {
 }
 
 /**
- * Serves a Supabase Storage image resized for previews.
+ * Points a Storage image at the site's /og route, which crops it to the card
+ * size and re-encodes it as a small JPEG.
  *
- * Phone photos are often several MB, and WhatsApp silently drops preview
- * images past a few hundred KB, so a listing whose first photo was 2.5 MB
- * unfurled with no picture at all. The render endpoint crops to the card size
- * and recompresses (~80 KB). Images hosted anywhere else are passed through.
+ * Phone photos are often several MB and WhatsApp silently drops preview images
+ * past a few hundred KB, so large uploads used to unfurl with no picture.
+ * Images hosted anywhere else are passed through untouched.
  */
 export function previewImage(src: string): string {
-  const marker = "/storage/v1/object/public/";
-  if (!src.includes(marker)) return src;
-  const resized = src.replace(marker, "/storage/v1/render/image/public/");
-  const query = new URLSearchParams({
-    width: String(OG_WIDTH),
-    height: String(OG_HEIGHT),
-    resize: "cover",
-    quality: "75",
-  });
-  return `${resized}?${query}`;
+  if (!src.includes("/storage/v1/object/public/")) return src;
+  return `/og?${new URLSearchParams({ src })}`;
 }
 
 export function truncate(text: string | null | undefined, max = 160): string {
