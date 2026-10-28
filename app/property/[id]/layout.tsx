@@ -1,17 +1,18 @@
 import type { Metadata } from "next";
-import { extractIdFromParam } from "@/lib/slug";
+import { cache } from "react";
+import { extractIdFromParam, propertyHref } from "@/lib/slug";
 import { formatPrice } from "@/lib/currency";
+import { fetchPublicRows, firstImage, jsonLd, pageMetadata, previewImage, SITE_URL, truncate } from "@/lib/seo";
 
 /**
- * Link previews for shared property URLs.
+ * Link previews and search metadata for property pages.
  *
- * The page itself is a client component, so without this every shared listing
- * unfurled with the site-wide title and logo. WhatsApp, iMessage and the rest
- * only read server-rendered tags, so the listing is fetched here as well.
- * Approved listings are readable with the anon key, which is all a crawler has.
+ * The page itself is a client component (and asks visitors to sign in), so
+ * everything a crawler sees comes from here.
  */
 
-type PreviewRow = {
+type PropertyRow = {
+  id: string;
   title: string | null;
   description: string | null;
   images: unknown;
@@ -19,28 +20,28 @@ type PreviewRow = {
   currency: string | null;
   location_city: string | null;
   location_country: string | null;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  property_type: string | null;
 };
 
-async function fetchPreview(id: string): Promise<PreviewRow | null> {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) return null;
-
-  const query = new URLSearchParams({
+const getProperty = cache(async (param: string): Promise<PropertyRow | null> => {
+  const id = extractIdFromParam(param);
+  if (!id) return null;
+  const rows = await fetchPublicRows<PropertyRow>("properties", {
     id: `eq.${id}`,
-    select: "title,description,images,price,currency,location_city,location_country",
+    select:
+      "id,title,description,images,price,currency,location_city,location_country,bedrooms,bathrooms,property_type",
   });
-  try {
-    const res = await fetch(`${url}/rest/v1/properties?${query}`, {
-      headers: { apikey: key, Authorization: `Bearer ${key}` },
-      next: { revalidate: 300 },
-    });
-    if (!res.ok) return null;
-    const rows = (await res.json()) as PreviewRow[];
-    return rows[0] ?? null;
-  } catch {
-    return null;
-  }
+  return rows[0] ?? null;
+});
+
+function where(p: PropertyRow): string {
+  return [p.location_city?.trim(), p.location_country?.trim()].filter(Boolean).join(", ");
+}
+
+function monthly(p: PropertyRow): string | null {
+  return p.price != null ? `${formatPrice(Number(p.price), p.currency || "GBP")}/month` : null;
 }
 
 export async function generateMetadata({
@@ -48,46 +49,87 @@ export async function generateMetadata({
 }: {
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
-  const id = extractIdFromParam((await params).id);
-  const property = id ? await fetchPreview(id) : null;
-  if (!property) return {};
+  const property = await getProperty((await params).id);
+  if (!property) return { title: "Property not found", robots: { index: false } };
 
-  const title = property.title?.trim() || "A home on SafeHome";
-  const where = [property.location_city, property.location_country]
+  const name = property.title?.trim() || "Room to rent";
+  const place = where(property);
+  const price = monthly(property);
+  const facts = [
+    property.bedrooms ? `${property.bedrooms} bed` : null,
+    property.bathrooms ? `${property.bathrooms} bath` : null,
+  ]
     .filter(Boolean)
     .join(", ");
-  const price =
-    property.price != null
-      ? `${formatPrice(Number(property.price), property.currency || "GBP")}/month`
-      : null;
-  const description =
-    [price, where].filter(Boolean).join(" · ") ||
-    property.description?.slice(0, 160) ||
-    "View this listing on SafeHome.";
 
-  const images = (Array.isArray(property.images) ? property.images : [])
-    .filter((src): src is string => typeof src === "string" && src.startsWith("http"))
-    .slice(0, 1);
+  // The chat preview shows the description under the title, so the facts
+  // people decide on come first and the listing's own words fill the rest.
+  const lead = [price, place, facts].filter(Boolean).join(" · ");
+  const description = truncate(
+    [lead, property.description].filter(Boolean).join(". "),
+    200
+  );
 
-  return {
-    title: `${title} | SafeHome`,
-    description,
-    openGraph: {
-      title,
-      description,
-      type: "website",
-      siteName: "SafeHome",
-      ...(images.length ? { images } : {}),
-    },
-    twitter: {
-      card: images.length ? "summary_large_image" : "summary",
-      title,
-      description,
-      ...(images.length ? { images } : {}),
-    },
-  };
+  return pageMetadata({
+    title: [name, price && place ? `${price} in ${property.location_city?.trim()}` : price]
+      .filter(Boolean)
+      .join(" – "),
+    shareTitle: name,
+    description: description || "View this home on SafeHome.",
+    path: propertyHref({ id: property.id, title: name }),
+    image: firstImage(property.images),
+    imageAlt: place ? `${name} in ${place}` : name,
+  });
 }
 
-export default function PropertyLayout({ children }: { children: React.ReactNode }) {
-  return children;
+export default async function PropertyLayout({
+  children,
+  params,
+}: {
+  children: React.ReactNode;
+  params: Promise<{ id: string }>;
+}) {
+  const property = await getProperty((await params).id);
+  const image = property ? firstImage(property.images) : null;
+
+  return (
+    <>
+      {property && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={jsonLd({
+            "@context": "https://schema.org",
+            "@type": "Accommodation",
+            name: property.title,
+            description: truncate(property.description, 500),
+            url: `${SITE_URL}${propertyHref({ id: property.id, title: property.title ?? "" })}`,
+            ...(image ? { image: previewImage(image) } : {}),
+            ...(property.bedrooms ? { numberOfBedrooms: property.bedrooms } : {}),
+            ...(property.bathrooms ? { numberOfBathroomsTotal: property.bathrooms } : {}),
+            address: {
+              "@type": "PostalAddress",
+              addressLocality: property.location_city,
+              addressCountry: property.location_country,
+            },
+            ...(property.price != null
+              ? {
+                  offers: {
+                    "@type": "Offer",
+                    price: Number(property.price),
+                    priceCurrency: property.currency || "GBP",
+                    priceSpecification: {
+                      "@type": "UnitPriceSpecification",
+                      price: Number(property.price),
+                      priceCurrency: property.currency || "GBP",
+                      unitCode: "MON",
+                    },
+                  },
+                }
+              : {}),
+          })}
+        />
+      )}
+      {children}
+    </>
+  );
 }
